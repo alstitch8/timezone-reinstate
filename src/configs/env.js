@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("./loadEnv");
 
 module.exports = {
   PORT: Number(process.env.PORT || 3060),
