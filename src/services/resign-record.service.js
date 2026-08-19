@@ -1,6 +1,9 @@
-const pool = require("../configs/db");
+function getPool() {
+  return require("../configs/db");
+}
 
 async function findEmployeeByEmpCode(empCode) {
+  const pool = getPool();
   const query = {
     text: "SELECT id, ssn FROM personnel_employee WHERE emp_code = $1 LIMIT 1",
     values: [String(empCode)],
@@ -16,6 +19,7 @@ async function findEmployeeByEmpCode(empCode) {
 }
 
 async function findLatestResignIdByEmployeeDbId(employeeDbId) {
+  const pool = getPool();
   const query = {
     text: "SELECT id FROM personnel_resign WHERE employee_id = $1 ORDER BY id DESC LIMIT 1",
     values: [String(employeeDbId)],
@@ -31,6 +35,7 @@ async function findLatestResignIdByEmployeeDbId(employeeDbId) {
 }
 
 async function clearEmployeeSsnByEmpCode(empCode) {
+  const pool = getPool();
   const query = {
     text: "UPDATE personnel_employee SET ssn = NULL WHERE emp_code = $1",
     values: [String(empCode)],
@@ -40,6 +45,7 @@ async function clearEmployeeSsnByEmpCode(empCode) {
 }
 
 async function restoreEmployeeSsnByEmpCode(empCode, ssn) {
+  const pool = getPool();
   const query = {
     text: "UPDATE personnel_employee SET ssn = $1 WHERE emp_code = $2",
     values: [ssn, String(empCode)],
