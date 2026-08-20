@@ -15,6 +15,49 @@ function normalizeDisableAtt(value) {
   return String(value);
 }
 
+function hasSsnValue(ssn) {
+  return ssn !== null && ssn !== undefined && String(ssn).trim() !== "";
+}
+
+async function resignEmployeeWithSsnHack(employeeCode, employeeId, csrfToken, resignDetails) {
+  const employeeRecord = await resignRecordService.findEmployeeByEmpCode(employeeCode);
+  const currentSsn = employeeRecord ? employeeRecord.ssn : null;
+  const shouldTemporarilyClearSsn = hasSsnValue(currentSsn);
+
+  if (shouldTemporarilyClearSsn) {
+    await resignRecordService.clearEmployeeSsnByEmpCode(employeeCode);
+  }
+
+  let resignError;
+  let actionResult;
+
+  try {
+    actionResult = await timezoneService.resignEmployee(employeeId, csrfToken, resignDetails);
+  } catch (error) {
+    resignError = error;
+    throw error;
+  } finally {
+    if (shouldTemporarilyClearSsn) {
+      try {
+        await resignRecordService.restoreEmployeeSsnByEmpCode(employeeCode, currentSsn);
+      } catch (restoreError) {
+        if (resignError) {
+          console.error("Failed to restore SSN after resign failure:", restoreError.message);
+        } else {
+          throw new ApiError(500, "failed to restore employee ssn", {
+            cause: restoreError.message,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    actionResult,
+    ssnTemporarilyCleared: shouldTemporarilyClearSsn,
+  };
+}
+
 async function resignByEmployeeCode(payload = {}) {
   const {
     employeeCode,
@@ -31,7 +74,7 @@ async function resignByEmployeeCode(payload = {}) {
   const csrfToken = await timezoneService.login();
   const employee = await timezoneService.findEmployee(employeeCode);
 
-  const actionResult = await timezoneService.resignEmployee(employee.id, csrfToken, {
+  const resignResult = await resignEmployeeWithSsnHack(employeeCode, employee.id, csrfToken, {
     resignDate: effectiveDate,
     resignType,
     reportGenerationEndDate: effectiveReportDate,
@@ -48,7 +91,8 @@ async function resignByEmployeeCode(payload = {}) {
       disableAtt: normalizeDisableAtt(disableAtt),
       resignReason,
     },
-    timezoneResponse: actionResult,
+    ssnTemporarilyCleared: resignResult.ssnTemporarilyCleared,
+    timezoneResponse: resignResult.actionResult,
   };
 }
 
@@ -72,7 +116,7 @@ async function resignManyByEmployeeCodes(payloadList = []) {
     try {
       const employee = await timezoneService.findEmployee(employeeCode);
 
-      const actionResult = await timezoneService.resignEmployee(employee.id, csrfToken, {
+      const resignResult = await resignEmployeeWithSsnHack(employeeCode, employee.id, csrfToken, {
         resignDate: effectiveDate,
         resignType,
         reportGenerationEndDate: effectiveReportDate,
@@ -93,7 +137,8 @@ async function resignManyByEmployeeCodes(payloadList = []) {
           disableAtt: normalizeDisableAtt(disableAtt),
           resignReason,
         },
-        timezoneResponse: actionResult,
+        ssnTemporarilyCleared: resignResult.ssnTemporarilyCleared,
+        timezoneResponse: resignResult.actionResult,
       });
     } catch (error) {
       results.push({
@@ -126,7 +171,7 @@ async function reinstateByEmployeeIdWithToken(employeeId, csrfToken) {
   }
 
   const currentSsn = employeeRecord.ssn;
-  const hasSsn = currentSsn !== null && String(currentSsn).trim() !== "";
+  const hasSsn = hasSsnValue(currentSsn);
 
   if (hasSsn) {
     await resignRecordService.clearEmployeeSsnByEmpCode(employeeId);
