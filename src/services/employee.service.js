@@ -21,6 +21,19 @@ function hasSsnValue(ssn) {
 
 async function resignEmployeeWithSsnHack(employeeCode, employeeId, csrfToken, resignDetails) {
   const employeeRecord = await resignRecordService.findEmployeeByEmpCode(employeeCode);
+
+  if (!employeeRecord) {
+    throw new ApiError(404, "employee does not exist");
+  }
+
+  const resignId = await resignRecordService.findLatestResignIdByEmployeeDbId(
+    employeeRecord.id
+  );
+
+  if (resignId) {
+    throw new ApiError(409, "employee already resigned");
+  }
+
   const currentSsn = employeeRecord ? employeeRecord.ssn : null;
   const shouldTemporarilyClearSsn = hasSsnValue(currentSsn);
 
@@ -167,7 +180,7 @@ async function reinstateByEmployeeIdWithToken(employeeId, csrfToken) {
   );
 
   if (!resignId) {
-    throw new ApiError(404, "employee does not exist");
+    throw new ApiError(409, "employee is active");
   }
 
   const currentSsn = employeeRecord.ssn;
