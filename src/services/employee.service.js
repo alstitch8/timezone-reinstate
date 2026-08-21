@@ -3,6 +3,10 @@ const resignRecordService = require("./resign-record.service");
 const { todayAsYYYYMMDD } = require("../helper/date.helper");
 const ApiError = require("../untils/ApiError");
 
+function getPool() {
+  return require("../configs/db");
+}
+
 function normalizeDisableAtt(value) {
   if (typeof value === "boolean") {
     return value ? "True" : "False";
@@ -17,6 +21,104 @@ function normalizeDisableAtt(value) {
 
 function hasSsnValue(ssn) {
   return ssn !== null && ssn !== undefined && String(ssn).trim() !== "";
+}
+
+function mapEmployeeRow(row) {
+  return {
+    id: row.id,
+    first_name: row.first_name,
+    last_name: row.last_name,
+    employeeid: row.employeeid,
+  };
+}
+
+async function findEmployeesByCodes(employeeIds = []) {
+  const normalizedIds = employeeIds.map((employeeId) => String(employeeId));
+  const pool = getPool();
+  const query = {
+    text: `
+      SELECT
+        p.id AS id,
+        p.first_name,
+        p.last_name,
+        p.emp_code AS employeeid
+      FROM personnel_employee p
+      WHERE p.emp_code = ANY($1::text[])
+    `,
+    values: [normalizedIds],
+  };
+
+  const result = await pool.query(query);
+  const employeesById = new Map(
+    result.rows.map((row) => [String(row.employeeid), mapEmployeeRow(row)])
+  );
+
+  return normalizedIds.map((employeeId) => {
+    const employee = employeesById.get(employeeId);
+
+    if (!employee) {
+      return {
+        success: false,
+        employeeId,
+        message: "employee not found",
+      };
+    }
+
+    return {
+      success: true,
+      employee,
+    };
+  });
+}
+
+async function findAllEmployees() {
+  const pool = getPool();
+  const query = {
+    text: `
+      SELECT
+        p.id AS id,
+        p.first_name,
+        p.last_name,
+        p.emp_code AS employeeid
+      FROM personnel_employee p
+      ORDER BY p.emp_code
+    `,
+  };
+
+  const result = await pool.query(query);
+  return result.rows.map(mapEmployeeRow);
+}
+
+async function getEmployees(payload = {}) {
+  if (payload.all === true) {
+    return {
+      mode: "all",
+      employees: await findAllEmployees(),
+    };
+  }
+
+  const employeeIds = Array.isArray(payload.employeeIds)
+    ? payload.employeeIds
+    : [payload.employeeId];
+  const results = await findEmployeesByCodes(employeeIds);
+
+  if (!Array.isArray(payload.employeeIds)) {
+    const result = results[0];
+
+    if (!result.success) {
+      throw new ApiError(404, "employee not found");
+    }
+
+    return {
+      mode: "single",
+      employee: result.employee,
+    };
+  }
+
+  return {
+    mode: "many",
+    results,
+  };
 }
 
 async function resignEmployeeWithSsnHack(employeeCode, employeeId, csrfToken, resignDetails) {
@@ -257,6 +359,7 @@ async function reinstateManyByEmployeeIds(payloadList = []) {
 }
 
 module.exports = {
+  getEmployees,
   resignByEmployeeCode,
   resignManyByEmployeeCodes,
   reinstateByEmployeeId,

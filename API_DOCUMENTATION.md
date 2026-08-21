@@ -41,6 +41,7 @@ Content-Type: application/json
 | --- | --- | --- | --- |
 | `GET` | `/health` | No | Checks that the API process is running. |
 | `GET` | `/health/db` | No | Checks that the API can connect to PostgreSQL. |
+| `POST` | `/api/employees` | Yes | Gets one, many, or all employees from PostgreSQL. |
 | `POST` | `/api/resign` | Yes | Resigns one or more employees in TIMEZONE. |
 | `POST` | `/api/reinstate` | Yes | Reinstates one or more employees in TIMEZONE. |
 
@@ -98,6 +99,138 @@ Status: `500 Internal Server Error`
 {
   "success": false,
   "message": "Missing required database environment variable: PG_HOST"
+}
+```
+
+## POST /api/employees
+
+Gets employee records from PostgreSQL. This endpoint supports a single employee ID, multiple employee IDs, or all employees.
+
+### Authentication
+
+Required.
+
+```http
+Authorization: Bearer <API_AUTH_TOKEN>
+```
+
+### Single Request Body
+
+```json
+{
+  "employeeId": "13404671"
+}
+```
+
+### Multiple Request Body
+
+```json
+{
+  "employeeIds": ["13404671", "12345"]
+}
+```
+
+### All Employees Request Body
+
+```json
+{
+  "all": true
+}
+```
+
+### Response Fields
+
+| Field | Description |
+| --- | --- |
+| `id` | Database ID from `personnel_employee.id`. |
+| `first_name` | Employee first name. |
+| `last_name` | Employee last name. |
+| `employeeid` | Employee code from `personnel_employee.emp_code`. |
+
+### Single Example Request
+
+```bash
+curl -X POST http://localhost:3060/api/employees \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <API_AUTH_TOKEN>" \
+  -d '{
+    "employeeId": "13404671"
+  }'
+```
+
+### Single Success Response
+
+Status: `200 OK`
+
+```json
+{
+  "success": true,
+  "employee": {
+    "id": 1,
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "employeeid": "13404671"
+  }
+}
+```
+
+### Single Not Found Response
+
+Status: `404 Not Found`
+
+```json
+{
+  "success": false,
+  "message": "employee not found"
+}
+```
+
+### Multiple Response
+
+Status: `200 OK` when all employees are found.
+Status: `207 Multi-Status` when one or more employees are not found.
+
+```json
+{
+  "success": false,
+  "total": 2,
+  "successCount": 1,
+  "failedCount": 1,
+  "results": [
+    {
+      "success": true,
+      "employee": {
+        "id": 1,
+        "first_name": "Jane",
+        "last_name": "Doe",
+        "employeeid": "13404671"
+      }
+    },
+    {
+      "success": false,
+      "employeeId": "12345",
+      "message": "employee not found"
+    }
+  ]
+}
+```
+
+### All Employees Response
+
+Status: `200 OK`
+
+```json
+{
+  "success": true,
+  "total": 1,
+  "employees": [
+    {
+      "id": 1,
+      "first_name": "Jane",
+      "last_name": "Doe",
+      "employeeid": "13404671"
+    }
+  ]
 }
 ```
 

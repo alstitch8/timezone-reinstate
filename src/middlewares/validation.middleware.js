@@ -57,6 +57,37 @@ function validateResignRequest(req, res, next) {
   return next();
 }
 
+function validateGetEmployeesRequest(req, res, next) {
+  const body = req.body || {};
+  const errors = [];
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    errors.push("item: payload must be an object");
+  } else if (body.all === true) {
+    if (!isBlank(body.employeeId) || body.employeeIds !== undefined) {
+      errors.push("item: all cannot be combined with employeeId or employeeIds");
+    }
+  } else if (Array.isArray(body.employeeIds)) {
+    if (body.employeeIds.length === 0) {
+      errors.push("item: employeeIds cannot be empty");
+    }
+
+    body.employeeIds.forEach((employeeId, index) => {
+      if (isBlank(employeeId)) {
+        errors.push(`employeeIds[${index}]: employeeId is required`);
+      }
+    });
+  } else if (isBlank(body.employeeId)) {
+    errors.push("item: employeeId is required, or set all to true");
+  }
+
+  if (errors.length > 0) {
+    return next(new ApiError(400, "Validation failed", errors));
+  }
+
+  return next();
+}
+
 function validateReinstateRequest(req, res, next) {
   const body = req.body;
   const errors = [];
@@ -100,6 +131,7 @@ function validateReinstateRequest(req, res, next) {
 }
 
 module.exports = {
+  validateGetEmployeesRequest,
   validateResignRequest,
   validateReinstateRequest,
 };
