@@ -42,6 +42,8 @@ Content-Type: application/json
 | `GET` | `/health` | No | Checks that the API process is running. |
 | `GET` | `/health/db` | No | Checks that the API can connect to PostgreSQL. |
 | `POST` | `/api/employees` | Yes | Gets one, many, or all employees from PostgreSQL. |
+| `GET` | `/api/companies` | Yes | Gets all companies from PostgreSQL. |
+| `GET` | `/api/departments` | Yes | Gets all departments with their company IDs from PostgreSQL. |
 | `POST` | `/api/resign` | Yes | Resigns one or more employees in TIMEZONE. |
 | `POST` | `/api/reinstate` | Yes | Reinstates one or more employees in TIMEZONE. |
 
@@ -138,6 +140,28 @@ Authorization: Bearer <API_AUTH_TOKEN>
 }
 ```
 
+### Filtered Employees Request Bodies
+
+Use `department`, `company`, or both with `all: true`. `department` matches `personnel_department.dept_name`. `company` can be either `personnel_company.id` or `personnel_company.name`.
+
+Get all employees in a department:
+
+```json
+{ "all": true, "department": "Operations" }
+```
+
+Get all employees in a company:
+
+```json
+{ "all": true, "company": 3 }
+```
+
+Get all employees in a department for a company:
+
+```json
+{ "all": true, "company": 3, "department": "Operations" }
+```
+
 ### Response Fields
 
 | Field | Description |
@@ -146,6 +170,8 @@ Authorization: Bearer <API_AUTH_TOKEN>
 | `first_name` | Employee first name. |
 | `last_name` | Employee last name. |
 | `employeeid` | Employee code from `personnel_employee.emp_code`. |
+| `department` | Department name from `personnel_department.dept_name` for all-employee requests. |
+| `company` | Company name from `personnel_company.name` for all-employee requests. |
 
 ### Single Example Request
 
@@ -228,7 +254,81 @@ Status: `200 OK`
       "id": 1,
       "first_name": "Jane",
       "last_name": "Doe",
-      "employeeid": "13404671"
+      "employeeid": "13404671",
+      "department": "Operations",
+      "company": "Example Company"
+    }
+  ]
+}
+```
+
+## GET /api/companies
+
+Gets all companies from PostgreSQL.
+
+### Authentication
+
+Required.
+
+```http
+Authorization: Bearer <API_AUTH_TOKEN>
+```
+
+### Example Request
+
+```bash
+curl http://localhost:3060/api/companies \
+  -H "Authorization: Bearer <API_AUTH_TOKEN>"
+```
+
+### Success Response
+
+Status: `200 OK`
+
+```json
+{
+  "success": true,
+  "total": 1,
+  "companies": [
+    {
+      "name": "Example Company",
+      "id": 3
+    }
+  ]
+}
+```
+
+## GET /api/departments
+
+Gets all departments with the company ID each department belongs to.
+
+### Authentication
+
+Required.
+
+```http
+Authorization: Bearer <API_AUTH_TOKEN>
+```
+
+### Example Request
+
+```bash
+curl http://localhost:3060/api/departments \
+  -H "Authorization: Bearer <API_AUTH_TOKEN>"
+```
+
+### Success Response
+
+Status: `200 OK`
+
+```json
+{
+  "success": true,
+  "total": 1,
+  "departments": [
+    {
+      "dept_name": "Operations",
+      "company_id": 3
     }
   ]
 }

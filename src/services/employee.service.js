@@ -29,7 +29,15 @@ function mapEmployeeRow(row) {
     first_name: row.first_name,
     last_name: row.last_name,
     employeeid: row.employeeid,
+    department: row.department,
+    company: row.company,
   };
+}
+
+function compactEmployeeRow(row) {
+  return Object.fromEntries(
+    Object.entries(mapEmployeeRow(row)).filter(([, value]) => value !== undefined)
+  );
 }
 
 async function findEmployeesByCodes(employeeIds = []) {
@@ -50,7 +58,7 @@ async function findEmployeesByCodes(employeeIds = []) {
 
   const result = await pool.query(query);
   const employeesById = new Map(
-    result.rows.map((row) => [String(row.employeeid), mapEmployeeRow(row)])
+    result.rows.map((row) => [String(row.employeeid), compactEmployeeRow(row)])
   );
 
   return normalizedIds.map((employeeId) => {
@@ -71,29 +79,71 @@ async function findEmployeesByCodes(employeeIds = []) {
   });
 }
 
-async function findAllEmployees() {
+async function findAllEmployees(filters = {}) {
   const pool = getPool();
+  const values = [];
+  const where = [];
+
+  if (filters.department !== undefined) {
+    values.push(String(filters.department));
+    where.push(`d.dept_name = $${values.length}`);
+  }
+
+  if (filters.company !== undefined) {
+    values.push(String(filters.company));
+    where.push(`(e.id::text = $${values.length} OR e."name" = $${values.length})`);
+  }
+
   const query = {
     text: `
       SELECT
         p.id AS id,
         p.first_name,
         p.last_name,
-        p.emp_code AS employeeid
+        p.emp_code AS employeeid,
+        d.dept_name AS department,
+        e."name" AS company
       FROM personnel_employee p
+      LEFT JOIN personnel_department d ON d.id = p.department_id
+      LEFT JOIN personnel_company e ON e.id = p.company_id
+      ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
       ORDER BY p.emp_code
     `,
+    values,
   };
 
   const result = await pool.query(query);
-  return result.rows.map(mapEmployeeRow);
+  return result.rows.map(compactEmployeeRow);
+}
+
+async function findAllCompanies() {
+  const pool = getPool();
+  const result = await pool.query(`
+    SELECT co."name", co.id
+    FROM personnel_company co
+  `);
+
+  return result.rows;
+}
+
+async function findAllDepartments() {
+  const pool = getPool();
+  const result = await pool.query(`
+    SELECT DISTINCT e.dept_name, e.company_id
+    FROM personnel_department e
+  `);
+
+  return result.rows;
 }
 
 async function getEmployees(payload = {}) {
   if (payload.all === true) {
     return {
       mode: "all",
-      employees: await findAllEmployees(),
+      employees: await findAllEmployees({
+        department: payload.department,
+        company: payload.company,
+      }),
     };
   }
 
@@ -360,6 +410,8 @@ async function reinstateManyByEmployeeIds(payloadList = []) {
 
 module.exports = {
   getEmployees,
+  findAllCompanies,
+  findAllDepartments,
   resignByEmployeeCode,
   resignManyByEmployeeCodes,
   reinstateByEmployeeId,

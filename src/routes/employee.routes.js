@@ -19,6 +19,16 @@ router.post(
 	validateGetEmployeesRequest,
 	asyncHandler(employeeController.getEmployees)
 );
+router.get(
+	"/api/companies",
+	requireApiAuth,
+	asyncHandler(employeeController.getCompanies)
+);
+router.get(
+	"/api/departments",
+	requireApiAuth,
+	asyncHandler(employeeController.getDepartments)
+);
 router.post(
 	"/api/resign",
 	requireApiAuth,

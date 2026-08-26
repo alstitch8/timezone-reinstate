@@ -30,6 +30,26 @@ async function getEmployees(req, res) {
   });
 }
 
+async function getCompanies(req, res) {
+  const companies = await employeeService.findAllCompanies();
+
+  return res.json({
+    success: true,
+    total: companies.length,
+    companies,
+  });
+}
+
+async function getDepartments(req, res) {
+  const departments = await employeeService.findAllDepartments();
+
+  return res.json({
+    success: true,
+    total: departments.length,
+    departments,
+  });
+}
+
 async function resign(req, res) {
   const payload = req.body;
 
@@ -91,6 +111,8 @@ async function reinstate(req, res) {
 
 module.exports = {
   getEmployees,
+  getCompanies,
+  getDepartments,
   resign,
   reinstate,
 };

@@ -67,7 +67,19 @@ function validateGetEmployeesRequest(req, res, next) {
     if (!isBlank(body.employeeId) || body.employeeIds !== undefined) {
       errors.push("item: all cannot be combined with employeeId or employeeIds");
     }
+
+    if (body.department !== undefined && isBlank(body.department)) {
+      errors.push("item: department cannot be blank");
+    }
+
+    if (body.company !== undefined && isBlank(body.company)) {
+      errors.push("item: company cannot be blank");
+    }
   } else if (Array.isArray(body.employeeIds)) {
+    if (body.department !== undefined || body.company !== undefined) {
+      errors.push("item: department and company filters require all to be true");
+    }
+
     if (body.employeeIds.length === 0) {
       errors.push("item: employeeIds cannot be empty");
     }
@@ -79,6 +91,8 @@ function validateGetEmployeesRequest(req, res, next) {
     });
   } else if (isBlank(body.employeeId)) {
     errors.push("item: employeeId is required, or set all to true");
+  } else if (body.department !== undefined || body.company !== undefined) {
+    errors.push("item: department and company filters require all to be true");
   }
 
   if (errors.length > 0) {
